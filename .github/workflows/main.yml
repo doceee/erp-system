@@ -1,0 +1,40 @@
+name: Main tests
+
+on: push
+
+jobs:
+  container-job:
+    runs-on: ubuntu-latest
+    container: node:12.19.0
+    services:
+      redis:
+        image: redis:6.0.10
+      mysql:
+        image: mysql:5.7.33
+        env:
+          MYSQL_DATABASE: "erpsystem"
+          MYSQL_ROOT_PASSWORD: "root"
+          MYSQL_USER: "erpsystem"
+          MYSQL_PASSWORD: "erpsystem"
+        ports:
+          - 3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run server tests
+        working-directory: ./backend
+        run: |
+          npm install
+          cp .env.github-actions .env.test
+          NODE_ENV=test npm run db:recreate
+          npm run test
+      - name: Prepare environment
+        run: |
+          apt update
+          apt-get install libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libgconf-2-4 libnss3 libxss1 libasound2 libxtst6 xauth xvfb -y
+      - name: Run client tests
+        working-directory: ./frontend
+        run: |
+          npm install
+          cp .env.example .env.test
+          npm run test:e2e:pipeline
